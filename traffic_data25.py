@@ -126,10 +126,30 @@ if yuklenen_dosyalar:
     with tab1:
         st.subheader(f"📍 {secilen_gün} - Saat {secilen_saat:02d}:00")
         if not saatlik_veri.empty:
+            # Pydeck bazen çok büyük float sayıları veya datetime nesnelerini sevmez
+            # Veriyi temiz ve basit bir hale getiriyoruz
+            h_veri = saatlik_veri[['lat', 'lon', 'Renk', 'Hiz', 'Arac']].copy()
+            
             view = pdk.ViewState(latitude=41.0082, longitude=28.9784, zoom=10, pitch=45)
-            layer = pdk.Layer("ScatterplotLayer", data=saatlik_veri, get_position='[lon, lat]',
-                              get_color='Renk', get_radius=nokta_boyu, pickable=True)
-            st.pydeck_chart(pdk.Deck(initial_view_state=view, layers=[layer], tooltip={"text": "Hız: {Hiz} km/s\nAraç: {Arac}"}))
+            
+            # Katmanı tanımlarken veriyi açıkça belirtiyoruz
+            layer = pdk.Layer(
+                "ScatterplotLayer",
+                data=h_veri,
+                get_position='[lon, lat]',
+                get_color='Renk',
+                get_radius=nokta_boyu,
+                pickable=True,
+                auto_highlight=True # Görselliği artırır
+            )
+            
+            # tooltip kısmını bazen Pydeck JSON'a çeviremiyor, 
+            # eğer hata devam ederse tooltip={...} kısmını komple silip dene
+            st.pydeck_chart(pdk.Deck(
+                initial_view_state=view, 
+                layers=[layer], 
+                tooltip={"text": "Hız: {Hiz} km/s\nAraç: {Arac}"}
+            ))
         else:
             st.warning("Seçilen filtrelerde veri bulunamadı.")
 
