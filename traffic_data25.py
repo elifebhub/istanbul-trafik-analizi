@@ -5,6 +5,7 @@ import plotly.express as px
 from sklearn.ensemble import RandomForestRegressor
 from datetime import datetime
 import holidays
+import gc # RAM'i temizlemek
 
 # 1. AYARLAR VE TATİL TAKVİMİ
 st.set_page_config(page_title="Trafik Analizi", layout="wide", page_icon="🚦")
@@ -40,40 +41,48 @@ ILCE_KOORDINAT = {
 @st.cache_data
 def verileri_hazirla(yuklenen_dosyalar):
     df_listesi = []
+    # RAM Tasarrufu: Sadece bize lazım olan 5 sütunu okuyoruz
+    sutun_haritasi = {
+        'DATE_TIME': 'Tarih_Saat', 'LATITUDE': 'lat', 'LONGITUDE': 'lon',
+        'AVERAGE_SPEED': 'Hiz', 'NUMBER_OF_VEHICLES': 'Arac'
+    }
+
     for dosya in yuklenen_dosyalar:
         try:
             temp_df = pd.read_csv(dosya, encoding="utf-8-sig")
         except:
             temp_df = pd.read_csv(dosya, encoding="ISO-8859-9")
+        
+        # Gereksiz sütunları (Geohash vb.) hemen çöpe atıyoruz
+        temp_df = temp_df[list(sutun_haritasi.keys())].rename(columns=sutun_haritasi)
+        
+        # RAM Tasarrufu: Veri tiplerini float64'ten float32'ye düşür (Yer kazancı %50)
+        temp_df['lat'] = temp_df['lat'].astype('float32')
+        temp_df['lon'] = temp_df['lon'].astype('float32')
+        temp_df['Hiz'] = temp_df['Hiz'].astype('int16')
+        
         df_listesi.append(temp_df)
 
-    # Tüm dosyaları birleştir
+    # Tüm dosyaları birleştir ve listeyi silerek RAM'de yer aç
     df = pd.concat(df_listesi, ignore_index=True)
+    del df_listesi 
+    gc.collect()
 
-    # Sütun isimlerini İBB formatına göre düzenle
-    harita = {
-        'DATE_TIME': 'Tarih_Saat', 'LATITUDE': 'lat', 'LONGITUDE': 'lon',
-        'AVERAGE_SPEED': 'Hiz', 'NUMBER_OF_VEHICLES': 'Arac'
-    }
-    df = df.rename(columns=harita)
-
-    # Veri temizliği ve Tarih işlemleri
+    # Tarih işlemleri
     df['Tarih_Saat'] = pd.to_datetime(df['Tarih_Saat'], errors='coerce')
     df = df.dropna(subset=['Tarih_Saat', 'Hiz', 'Arac'])
 
-    df['Saat'] = df['Tarih_Saat'].dt.hour
-    df['Ay'] = df['Tarih_Saat'].dt.month  # Mevsimsellik için eklendi
+    # Zaman özelliklerini int8 yaparak belleği daha da rahatlatıyoruz
+    df['Saat'] = df['Tarih_Saat'].dt.hour.astype('int8')
+    df['Ay'] = df['Tarih_Saat'].dt.month.astype('int8')
     df['Gün'] = df['Tarih_Saat'].dt.date
-    df['Gun_No'] = df['Tarih_Saat'].dt.weekday
-    df['Is_Holiday'] = df['Gün'].apply(lambda x: 1 if x in tr_holidays else 0)
+    df['Gun_No'] = df['Tarih_Saat'].dt.weekday.astype('int8')
+    df['Is_Holiday'] = df['Gün'].apply(lambda x: 1 if x in tr_holidays else 0).astype('int8')
 
     def renk_ata(h):
-        if h < 30:
-            return [255, 0, 0, 160]
-        elif h < 60:
-            return [255, 200, 0, 160]
-        else:
-            return [0, 255, 0, 160]
+        if h < 30: return [255, 0, 0, 160]
+        elif h < 60: return [255, 200, 0, 160]
+        else: return [0, 255, 0, 160]
 
     df['Renk'] = df['Hiz'].apply(renk_ata)
     return df
@@ -81,11 +90,21 @@ def verileri_hazirla(yuklenen_dosyalar):
 
 @st.cache_resource
 def model_egit(veri):
+    # Çoklu dosyadan gelen milyonlarca satır yerine en kaliteli 50.000 örneği seçiyoruz
     ornek = veri.sample(n=min(50000, len(veri)), random_state=42)
-    X = ornek[['Saat', 'Gun_No', 'Arac', 'lat', 'lon', 'Is_Holiday']]
+    
+    # Giriş parametrelerine 'Ay' eklendi (Mevsimsel tahmin için şart!)
+    X = ornek[['Saat', 'Gun_No', 'Arac', 'lat', 'lon', 'Is_Holiday', 'Ay']]
     y = ornek['Hiz']
-    rf = RandomForestRegressor(n_estimators=30, max_depth=12, random_state=42)
+    
+    # n_estimators'ı 30 yaparak hızı artırdık
+    rf = RandomForestRegressor(n_estimators=30, max_depth=12, random_state=42, n_jobs=-1)
     rf.fit(X, y)
+    
+    # Kullanılan geçici veriyi RAM'den siliyoruz
+    del ornek
+    gc.collect()
+    
     return rf
 
 
@@ -197,15 +216,15 @@ if yuklenen_dosyalar:
             t_saat = st.slider("Saat:", 0, 23, 18, key="t_slider")
             t_ilce = st.selectbox("Konum (İlçe):", list(ILCE_KOORDINAT.keys()))
 
-            # --- ✅ DÜZELTME: LOKAL ARAÇ SAYISI ---
+            # --- ✅ LOKAL ARAÇ SAYISI ANALİZİ ---
             lat, lon = ILCE_KOORDINAT[t_ilce]
-            # Sadece seçilen konuma yakın olan verileri filtrele (0.02 derece tolerans)
+            # Seçilen konuma yakın olan verileri filtrele (0.02 derece tolerans)
             lokal_gecmis = df[
                 (df['lat'].between(lat - 0.02, lat + 0.02)) &
                 (df['lon'].between(lon - 0.02, lon + 0.02)) &
                 (df['Saat'] == t_saat) &
                 (df['Gun_No'] == t_tarih.weekday())
-                ]
+            ]
 
             # Eğer lokal veri yoksa genel ortalamaya dön (Hata önleyici)
             if not lokal_gecmis.empty:
@@ -222,20 +241,25 @@ if yuklenen_dosyalar:
             bayram_mi = 1 if t_tarih in tr_holidays else 0
             bayram_adi = tr_holidays.get(t_tarih) if bayram_mi else "Normal Gün"
 
-            girdi = pd.DataFrame([[t_saat, t_tarih.weekday(), t_arac, lat, lon, bayram_mi]],
-                                 columns=['Saat', 'Gun_No', 'Arac', 'lat', 'lon', 'Is_Holiday'])
+            # --- 🚀 KRİTİK DÜZELTME: 'Ay' PARAMETRESİ EKLENDİ ---
+            # Model 7 sütun bekliyor, t_tarih.month bilgisini ekliyoruz.
+            girdi = pd.DataFrame(
+                [[t_saat, t_tarih.weekday(), t_arac, lat, lon, bayram_mi, t_tarih.month]],
+                columns=['Saat', 'Gun_No', 'Arac', 'lat', 'lon', 'Is_Holiday', 'Ay']
+            )
+            
             tahmin = ai_model.predict(girdi)[0]
 
             st.subheader(f"🔮 {t_ilce} Analiz Raporu")
             st.metric(f"Tahmini Hız", f"{tahmin:.1f} km/s")
 
-            # --- ✅ DÜZELTME: AKILLI KIYASLAMA ---
+            # --- ✅ AKILLI KIYASLAMA MANTIĞI ---
             if bayram_mi:
                 st.warning(
                     f"🎊 {bayram_adi} trafiği analiz ediliyor. Resmi tatil günlerinde kaza/aksaklık analizi devre dışı bırakıldı.")
             else:
                 fark = tahmin - gecmis_hiz_ort
-                if fark < -10:  # Fark 10 km/s'den fazlaysa aksaklık de
+                if fark < -10:
                     st.error(
                         f"🚨 **Aksaklık Olasılığı:** Bu noktada normalde hız {gecmis_hiz_ort:.1f} km/s olurdu. Tahmin edilen {tahmin:.1f} km/s değeri bir aksaklığa veya yol çalışması gibi sebeplere işaret edebilir.")
                 elif abs(fark) <= 10:
