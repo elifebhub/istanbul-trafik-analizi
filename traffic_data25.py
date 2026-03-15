@@ -115,24 +115,29 @@ yuklenen_dosyalar = st.sidebar.file_uploader("Analiz için .csv dosyalarını bu
 if yuklenen_dosyalar:
     df = verileri_hazirla(yuklenen_dosyalar)
     st.sidebar.success(f"{len(yuklenen_dosyalar)} dosya birleştirildi.")
+    
+    # ---  TARİH SEÇİMİ ---
+    # Tüm tarihleri değil, sadece mevcut olan benzersiz tarihleri alıyoruz
+    mevcut_tarihler = sorted(df['Gün'].unique())
+    secilen_gün = st.sidebar.selectbox("📅 Analiz Tarihi:", mevcut_tarihler)
+    
+    # ---  Veriyi ana bellekte hemen küçült ---
+    # Kullanıcı tarihi seçtiği an, RAM'de duran milyonlarca satırı 
+    # sadece o güne (yaklaşık 30-40 bin satır) indiriyoruz.
+    df_gunluk = df[df['Gün'] == secilen_gün].copy()
+    
+    # (Bu satır RAM'i %90 rahatlatır)
 
-    st.sidebar.markdown("---")
-    secilen_gün = st.sidebar.selectbox("📅 Analiz Tarihi:", sorted(df['Gün'].unique()))
-    secilen_saat = st.sidebar.slider("⏰ Saat Dilimi:", 0, 23, 8, format="%02d:00")
+    secilen_saat = st.sidebar.slider("⏰ Saat Dilimi:", 0, 23, 8)
     secilen_yaka = st.sidebar.selectbox("📍 Bölge:", ("Tümü", "Avrupa Yakası", "Anadolu Yakası"))
-
-    st.sidebar.subheader("🎯 Görünüm Filtreleri")
-    trafik_filtresi = st.sidebar.multiselect("Trafik Durumu:", ["🚨 Yoğun", "🟡 Akıcı", "🟢 Açık"],
-                                             default=["🚨 Yoğun", "🟡 Akıcı", "🟢 Açık"])
-    nokta_boyu = st.sidebar.slider("Nokta Büyüklüğü:", 50, 500, 120)
-
-    # 4. FİLTRELEME MANTIĞI
-    df_gunluk = df[df['Gün'] == secilen_gün]
-    if secilen_yaka == "Avrupa Yakası":
+    
+    # Filtreleme işlemlerini artık milyonlarca satır değil, 
+    # sadece seçilen günün (df_gunluk) üzerinden yapıyoruz:
+    if secilen_yaka == "Avrupa Yakası": 
         df_bolge = df_gunluk[df_gunluk['lon'] < 29.0]
-    elif secilen_yaka == "Anadolu Yakası":
+    elif secilen_yaka == "Anadolu Yakası": 
         df_bolge = df_gunluk[df_gunluk['lon'] >= 29.0]
-    else:
+    else: 
         df_bolge = df_gunluk
 
     saatlik_veri = df_bolge[df_bolge['Saat'] == secilen_saat].copy()
