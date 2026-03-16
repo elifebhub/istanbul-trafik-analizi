@@ -221,14 +221,14 @@ if yuklenen_dosyalar:
             
             egitilen_aylar = df['Ay'].unique()
             if t_tarih.month not in egitilen_aylar:
-                st.warning(f"⚠️ **Güvenilirlik Notu:** Model henüz {t_tarih.month}. ayın verisiyle eğitilmedi! Bu tahmin, yüklediğiniz diğer ayların karakteristiğine göre yapılıyor (Mevsimsel etkiler eksik olabilir).")
+                st.warning(f"⚠️ **Güvenilirlik Notu:** DİKKAT! Model henüz {t_tarih.month}. ayın verisiyle eğitilmedi! Bu tahmin, yüklediğiniz ayların karakteristiğine göre yapılıyor (Mevsimsel etkiler eksik olabilir).")
             
             if bayram_mi:
                 st.warning(f"🎊 {bayram_adi} trafiği analiz ediliyor. Resmi tatil günlerinde kaza/aksaklık analizi devre dışı bırakıldı.")
             else:
                 fark = tahmin - gecmis_hiz_ort
                 if fark < -10:
-                    st.error(f"🚨 **Aksaklık Olasılığı:** Bu noktada normalde hız {gecmis_hiz_ort:.1f} km/s olurdu. Tahmin edilen {tahmin:.1f} km/s değeri bir aksaklığa veya yol çalışması gibi sebeplere işaret edebilir.")
+                    st.error(f"🚨 **Aksaklık Olasılığı:** Bu noktada normalde hız {gecmis_hiz_ort:.1f} km/s olurdu. Tahmin edilen {tahmin:.1f} km/s değeri, trafiğin normal seyirden daha düşük bir hızda ilerleyeceğine işaret ediyor.")
                 elif abs(fark) <= 10:
                     st.info(f"📅 **Normal Seyir:** {t_ilce} için {t_saat:02d}:00 trafiği, geçmiş verilerdeki {gecmis_hiz_ort:.1f} km/s ortalamasıyla paralel görünüyor.")
                 else:
