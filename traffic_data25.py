@@ -125,33 +125,39 @@ if yuklenen_dosyalar:
 
     with tab1:
         st.subheader(f"📍 {secilen_gün} - Saat {secilen_saat:02d}:00")
+        
         if not saatlik_veri.empty:
-            # Pydeck bazen çok büyük float sayıları veya datetime nesnelerini sevmez
-            # Veriyi temiz ve basit bir hale getiriyoruz
-            h_veri = saatlik_veri[['lat', 'lon', 'Renk', 'Hiz', 'Arac']].copy()
+            # Pydeck'in hata vermemesi için veriyi DataFrame'den 
+            # standart Python listesine çeviriyoruz.
+            harita_verisi = saatlik_veri[['lat', 'lon', 'Renk', 'Hiz', 'Arac']].to_dict(orient='records')
             
-            view = pdk.ViewState(latitude=41.0082, longitude=28.9784, zoom=10, pitch=45)
+            view = pdk.ViewState(
+                latitude=41.0082, 
+                longitude=28.9784, 
+                zoom=10, 
+                pitch=45
+            )
             
-            # Katmanı tanımlarken veriyi açıkça belirtiyoruz
             layer = pdk.Layer(
                 "ScatterplotLayer",
-                data=h_veri,
+                data=harita_verisi, # <--- Sözlük formatında temiz veri
                 get_position='[lon, lat]',
                 get_color='Renk',
                 get_radius=nokta_boyu,
-                pickable=True,
-                auto_highlight=True # Görselliği artırır
+                pickable=True
             )
             
-            # tooltip kısmını bazen Pydeck JSON'a çeviremiyor, 
-            # eğer hata devam ederse tooltip={...} kısmını komple silip dene
-            st.pydeck_chart(pdk.Deck(
-                initial_view_state=view, 
-                layers=[layer], 
-                tooltip={"text": "Hız: {Hiz} km/s\nAraç: {Arac}"}
-            ))
+            # Tooltip ve Deck objesini hataya yer bırakmayacak şekilde sadeleştiriyoruz
+            try:
+                st.pydeck_chart(pdk.Deck(
+                    initial_view_state=view,
+                    layers=[layer],
+                    tooltip={"text": "Hız: {Hiz} km/s\nAraç: {Arac}"}
+                ))
+            except Exception as e:
+                st.error("Harita çizilirken teknik bir kısıtlama oluştu. Lütfen veriyi kontrol edin.")
         else:
-            st.warning("Seçilen filtrelerde veri bulunamadı.")
+            st.warning("Seçilen filtrelerde gösterilecek veri noktası bulunamadı.")
 
     with tab2:
         st.subheader("📊 Bölgesel ve Zamansal İstatistikler")
