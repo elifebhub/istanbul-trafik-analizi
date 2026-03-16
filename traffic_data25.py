@@ -185,6 +185,7 @@ if yuklenen_dosyalar:
         
         col1, col2 = st.columns([1, 2])
         with col1:
+            # 1. KULLANICIYA ÖZGÜRLÜK VERİYORUZ (Geleceği seçebilsin)
             t_tarih = st.date_input("Tahmin Tarihi:", datetime.now())
             t_saat = st.slider("Saat:", 0, 23, 18, key="t_slider")
             t_ilce = st.selectbox("Konum (İlçe):", list(ILCE_KOORDINAT.keys()))
@@ -217,8 +218,11 @@ if yuklenen_dosyalar:
 
             st.subheader(f"🔮 {t_ilce} Analiz Raporu")
             st.metric(f"Tahmini Hız", f"{tahmin:.1f} km/s")
-
-            # --- SİLİNEN KISIM GERİ GELDİ ---
+            
+            egitilen_aylar = df['Ay'].unique()
+            if t_tarih.month not in egitilen_aylar:
+            st.warning(f"⚠️ **Güvenilirlik Notu:** Model henüz {t_tarih.month}. ayın verisiyle eğitilmedi! Bu tahmin, yüklediğiniz diğer ayların karakteristiğine göre yapılıyor (Mevsimsel etkiler eksik olabilir).")
+            
             if bayram_mi:
                 st.warning(f"🎊 {bayram_adi} trafiği analiz ediliyor. Resmi tatil günlerinde kaza/aksaklık analizi devre dışı bırakıldı.")
             else:
