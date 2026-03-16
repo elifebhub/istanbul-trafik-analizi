@@ -221,7 +221,7 @@ if yuklenen_dosyalar:
             
             egitilen_aylar = df['Ay'].unique()
             if t_tarih.month not in egitilen_aylar:
-            st.warning(f"⚠️ **Güvenilirlik Notu:** Model henüz {t_tarih.month}. ayın verisiyle eğitilmedi! Bu tahmin, yüklediğiniz diğer ayların karakteristiğine göre yapılıyor (Mevsimsel etkiler eksik olabilir).")
+                st.warning(f"⚠️ **Güvenilirlik Notu:** Model henüz {t_tarih.month}. ayın verisiyle eğitilmedi! Bu tahmin, yüklediğiniz diğer ayların karakteristiğine göre yapılıyor (Mevsimsel etkiler eksik olabilir).")
             
             if bayram_mi:
                 st.warning(f"🎊 {bayram_adi} trafiği analiz ediliyor. Resmi tatil günlerinde kaza/aksaklık analizi devre dışı bırakıldı.")
