@@ -91,8 +91,9 @@ def model_egit(veri):
 
 # 3. YAN MENÜ
 st.sidebar.title("🧭 Kontrol Paneli")
+st.sidebar.info("💡 Sistem Notu: Sunucu bellek sınırları (1GB RAM) nedeniyle, en iyi performans için maksimum 2 aylık trafik veri seti yüklenmesi tavsiye edilir.")
 yuklenen_dosyalar = st.sidebar.file_uploader(
-    "İBB .csv dosyalarını yükleyin", 
+    "İBB Trafik .csv dosyalarını yükleyin", 
     type=["csv"], 
     accept_multiple_files=True,
     key="ibb_yukleyici"
@@ -229,4 +230,4 @@ if yuklenen_dosyalar:
                 else:
                     st.success(f"✅ **Akıcı:** Yol bugün normalden ({gecmis_hiz_ort:.1f} km/s) daha açık görünüyor!")
 else:
-    st.info("👋 Analize başlamak için lütfen sol menüden .csv dosyalarını yükleyin.")
+    st.info("👋 Merhaba, analize başlamak için lütfen sol menüden .csv dosyalarını yükleyin.")
